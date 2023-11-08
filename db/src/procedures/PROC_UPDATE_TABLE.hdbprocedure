@@ -1,0 +1,36 @@
+PROCEDURE "dev.procedures::PROC_UPDATE_TABLE"(IN ip_app_id NVARCHAR(10), IN ip_table NVARCHAR(50))
+    LANGUAGE SQLSCRIPT SQL SECURITY INVOKER AS
+    BEGIN
+        
+        DECLARE table_row INTEGER;
+    
+        -- parametros 1 e 2
+        DECLARE v_app_id NVARCHAR(10) = :ip_app_id;
+        DECLARE v_table NVARCHAR(50) = :ip_table;
+    
+        -- placeholder p/ statement
+        DECLARE sql_statement NVARCHAR(1000);
+    
+        DECLARE cursor transf_rules_cursor FOR
+            SELECT "SOURCE_FIELD", "SOURCE_VALUE", "TARGET_FIELD", "TARGET_VALUE"
+            FROM "dev.tables::TRANS_RULES"
+            WHERE APP_ID = :v_app_id;
+    
+        DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+        BEGIN    
+            INSERT INTO "dev.tables::LOG_ERROR" SELECT ::SQL_ERROR_CODE, ::SQL_ERROR_MESSAGE, NOW() FROM "dev::DUMMY";        
+        END;
+    
+        FOR table_row AS transf_rules_cursor DO
+            -- sql dinamico com placeholders
+            
+            sql_statement := 'UPDATE ' || :v_table || ' SET "?" = ? WHERE "?" = ?';
+    
+            -- exec parametrizado
+            EXECUTE IMMEDIATE :sql_statement  USING table_row."TARGET_FIELD", table_row."TARGET_VALUE", table_row."SOURCE_FIELD", table_row."SOURCE_VALUE";
+    
+        END FOR;
+               
+        CLOSE transf_rules_cursor;
+        
+    END;
